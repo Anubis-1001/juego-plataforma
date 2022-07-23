@@ -1,4 +1,5 @@
-let simpleLevelPlan = `......................
+let simpleLevelPlan = `
+......................
 ..#................#..
 ..#..............=.#..
 ..#.........o.o....#..
@@ -28,8 +29,26 @@ class coin{
     }
 }
 
+
+
+let rows = simpleLevelPlan.split("\n");
+scenario.className = "scenario";
+scenario.style.position = "absolute";
+//alert(rows);
+scenario.style.width = rows[0].length*20+"px";
+scenario.style.height = rows.length*20+"px";
+document.body.appendChild(scenario);
+
+var scale = 20;
+
 class Level{
-    
+    constructor(level){
+        this.rows = level.trim().split("\n");
+        this.width = rows[0].length*scale+"px";
+        this.height = rows.length*20+"px";
+    }
+
+
 }
 class actor{
     constructor(pos, speed){
@@ -47,14 +66,7 @@ class actor{
 }
 
 
-let scenario = document.createElement("div");
-let rows = simpleLevelPlan.split("\n");
-scenario.className = "scenario";
-scenario.style.position = "absolute";
-//alert(rows);
-scenario.style.width = rows[0].length*20+"px";
-scenario.style.height = rows.length*20+"px";
-document.body.appendChild(scenario);
+
 
 
 let player = new actor({x:20, y:20},{x:0, y:0});
