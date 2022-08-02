@@ -1,6 +1,6 @@
 let simpleLevelPlan = `......................
 ..#................#..
-..#..............=.#..
+..#...........=....#..
 ..#.........o.o....#..
 ..#.@......#####...#..
 ..#####............#..
@@ -10,11 +10,56 @@ let simpleLevelPlan = `......................
 
 
 
-class Wall {
-    constructor(pos, size){
+let scale = 20;
+
+function hits(actor, type, grid){
+    let roundedGridX = {start:  Math.ceil(actor.pos.x-1),end: Math.ceil(actor.pos.x)};
+    let roundedGridY = {start:  Math.ceil(actor.pos.y-1),end:Math.ceil(actor.pos.y)};
+    for(let x=roundedGridX.start; x<=roundedGridX.end; x++){
+        for(let y= roundedGridY.start; y<=roundedGridY.end; y++){
+            console.log(y);
+            if(grid[y][x] == type){
+                return true;
+            }
+    }
+}
+return false;
+}
+
+
+
+class Player{
+    constructor(pos, ch, speed){
         this.pos = pos;
-        this.size = size;
-        this.type = "Wall";
+        this.type = "Player";
+        this.speed=speed?speed:{x:0,y:0};
+    }
+
+    update(time, keys){
+        let previousX = this.pos.x;
+        let previousY = this.pos.y;
+        this.pos.x+=(-keys["ArrowLeft"]+keys["ArrowRight"])/8;
+        if(hits(this, "wall", level1.rows)){
+            this.pos.x = previousX;
+        }
+        if(keys["ArrowUp"] && this.speed.y==0){this.speed.y=-0.8;}
+        this.speed.y+=time*0.001;
+        this.pos.y+=this.speed.y*time/100+time*time/20000;
+        
+        if(hits(this, "wall", level1.rows)){
+            this.pos.y = previousY;
+            this.speed.y=0;
+        }
+
+        return new Player(this.pos,0,this.speed);
+    }
+}
+
+
+class Wall{
+    constructor(pos){
+        this.pos = pos;
+        this.type = "Wall"; 
     }
 
     update(){
@@ -22,156 +67,175 @@ class Wall {
     }
 }
 
-class Lava {
-    constructor(pos, size, type){
-        this.pos = pos;
-        this.size = size;
-        this.type = type;
-        this.type = "Lava";
-    }
-
-    update(){
-        return this;
-    }
-
-}
-
+var angle = 0;
 class Coin{
-    constructor(pos, size){
+    constructor(pos, ch, basePos){
         this.pos = pos;
-        this.size = size;
+        this.basePos= basePos ? basePos:pos;
         this.type = "Coin";
     }
 
-    update(frame){
-        return this;
+    update(time){
+        Coin.angle+=0.07;
+        let wobble =Math.sin(Coin.angle)*time/100;
+        return new Coin({x:this.basePos.x, y:this.basePos.y+wobble}, 0, this.basePos);
+    }
+
+    static get angle(){
+        return angle;
+    }
+
+    static set angle(newVal){
+        angle=newVal;
     }
 }
 
-class Sky{
-    constructor(pos, size){
+class Lava{
+    constructor(pos, ch, motion){
         this.pos = pos;
-        this.size = size;
-    }
-
-    update(){
-        return this;
-    }
-}
-
-class Player{
-    constructor(pos, size, speed){
-        this.pos = pos;
-        this.size = size;
-        this.speed = speed;
-        this.type = "Player";
-        //players.push(this);
-    }
-
-    update(frame, keys){
-        if(keys["ArrowLeft"]){
-            this.speed.x = 0.1;
+        this.type = "Lava";
+        this.reset = false;
+        this.ch=ch;
+        this.motion = motion;
+        if(!motion){
+            if(ch=="v"){
+                this.motion={x:0,y:3};
+                this.reset=true;
+            }
+            else if(ch=="=")this.motion={x:-3,y:0};
+            else if(ch=="+")this.motion={x:0, y:0};
         }
-        if(keys["ArrowRight"]){
-            this.speed.x=-0.1;
-        }
-        if(keys["ArrowUp"]){
-            this.speed.y = -0.1;
-        }
+    }
 
-        return new Player({x:this.pos.x+this.speed.x, y:this.pos.y+this.speed.y},this.size, this.speed, this.type);
+    update(time){
+        this.pos.x+=this.motion.x*time/1000;        
+        this.pos.y+=this.motion.y*time/1000;
+        let newLava = new Lava(this.pos,this.ch, this.motion);
+        if(newLava.ch=="="){
+            if(hits(newLava, "wall", level1.rows)){
+                newLava.motion.x*=-1;
+            }
+        }
+        return newLava;
     }
 
 }
-
-let rows = simpleLevelPlan.split("\n");
-//let players = [];
-var scale = 20;
-
-function elmnt(name, attributes, ...children){
-    let element = document.createElement(name);
-    for(let treat of Object.keys(attributes)){
-        element[treat] = attributes[treat];
-    }
-
-    children.forEach(item=>{element.appendChild(item)});
-
-    return element;
-}
-
-
-let types = {".":"Sky", "#":"Wall", "o":"Coin" , "@":"Player" , "+":"Lava", "=":"Lava" , "v":"Lava"};
-let classes = {".":Sky, "#":Wall, "o":Coin, "@":Player, "+":Lava, "=":Lava, "v":Lava}
-
-
-
-
-function overlap(actor1, actor2){
-    return actor1.pox.x+actor1.size.x>actor2.pox.x &&
-           actor1.pox.x<actor2.pos.x+actor2.size.x &&
-           actor1.pox.y+actor1.size.y>actor2.pos.y &&
-           actor1.pox.y<actor2.pos.y+actor2.size.y ;
-}
-
-function drawActors(actors){
-    return elmnt("div", {className:"scenario"}, ...actors.map(row=>{
-        return elmnt("div", {}, ...row.map(item=>{
-            let entity = elmnt("div", {className: item.type});
-            entity.style.top = item.pos.y*scale+"px"; 
-            entity.style.left = item.pos.x*scale+"px"; 
-            return entity;
-        }))})); 
-        //console.log(actor);
-        //div.style.top=actor.pos.y*scale+"px"; 
-        //div.style.left=actor.pos.x*scale+"px";
-        //return div}));
-}
-
-function updateActors(actorsDiv){
-}
+let classes = {".":"empty", "#":"wall", "o":Coin, "@":Player, "+":Lava, "=":Lava, "v":Lava};
 
 class Level{
-    constructor(level){
-        this.rows = level.trim().split("\n");
-        let width = rows[0].length;
-        this.width = width*scale+"px";
-        this.height = rows.length*scale+"px";
-        this.actors = this.rows.map((row,y) => Array.from(row).map((item,x)=>new classes[item]({x:x,y:y},{x:scale, y:scale}, {x:0, y:0})));
-        //console.log(this.actors);
-        /*let elements=[];
-        rows.map((row,y)=>{
-            Array.from(row).map((item, x)=>{
-                let entity = elmnt("div", {class: item});
-                entity.style.top=y*scale+"px";
-                entity.style.left=x*scale+"px";
-                
-                elements.push(entity);
-            });
-        }
-        )*/
-
-        this.layout = drawActors(this.actors);//elmnt("div", {className:"scenario"}, ...this.actors.map(actor=>{return elmnt("div", {class: actor.constructor.name})}));
-        console.log(this.layout);
-        this.layout.style.height = this.height;
-        this.layout.style.width = this.width;
-        document.body.appendChild(this.layout);
+    constructor(plan){
+        let rows = plan.trim().split("\n").map(line=>[...line]);
+        this.height = rows.length;
+        this.width = rows[0].length;
+        this.actors = [];
+        this.rows = rows.map((row, y)=>{
+            return row.map((ch, x)=>{
+                let type = classes[ch];
+                if(typeof type == "string" ) return type;
+                this.actors.push(new type({x:x, y:y},ch));
+                return "empty";
+            })
+        })
     }
 }
 
+class Status{
+    constructor(level){
+        this.actors = level.rows.map(row=>row.map(actor=> classes[actor]));
+    }
+}
+
+function drawActor(actor, parentDiv){
+    let item = document.createElement("div");
+    item.className = actor.type;
+    item.style.top = actor.pos.y*scale+"px";
+    item.style.left = actor.pos.x*scale+"px";
+    parentDiv.appendChild(item);
+    return item;
+}
+
+function drawGrid(lvl){
+    let scenario = document.createElement("div");
+    scenario.style.height = lvl.height*scale+"px";
+    scenario.style.width = lvl.width*scale+"px";
+    scenario.className = "scenario";
+    lvl.rows.forEach((row,y)=>row.forEach((item,x)=>{
+        if(item=="wall"){
+            let div = document.createElement("div");
+            div.className = "Wall";
+            div.style.position="absolute";
+            div.style.top=y*scale+"px";
+            div.style.left=x*scale+"px";
+            scenario.appendChild(div);
+        }
+
+    }))
+    document.body.appendChild(scenario);
+    return scenario;
+}
+/*
+function drawActors(actors, oldGrid){
+    oldGrid.forEach(element => {
+        element.remove();
+    });
+    let actorDivs = [];
+    for(let actor of actors){
+        document.body.appendChild()
+    }
+}
+*/
 
 
+let level1 = new Level(simpleLevelPlan);
+let StatusLv1 = new Status(level1);
 
-let firstLevel = new Level(simpleLevelPlan);
-let newFrame = drawActors(firstLevel.actors);
-let oldFrame;
-function animate(){
-    //document.body.appendChild(drawActors(firstLevel.actors));
-    oldFrame = newFrame;
+let keysPressed = {"ArrowUp": false,"ArrowLeft": false, "ArrowRight": false,}
+
+window.addEventListener("keydown", (e)=>{
+    keysPressed[e.key] = true;
+});
+window.addEventListener("keyup", (e)=>{
+    keysPressed[e.key] = false;
+});
+
+let oldActors = [];
+let lastTime = 0;
+let scenarioDiv = drawGrid(level1);
+function animate(time){
+    if(time-lastTime>=0.4){
+    oldActors.forEach(actor=>{actor.remove()});
+    oldActors = [];
     
-    newFrame = drawActors(firstLevel.actors = firstLevel.actors.map(line=>{return line.map(actor=>actor.update(0, {"ArrowUp":false, "ArrowRight":true, "ArrowLeft":true}))}));
-    document.body.appendChild(newFrame);
-    //oldFrame.remove();
+    level1.actors = level1.actors.map(actor=>{
+        return actor.update(Math.min(time-lastTime, 100), keysPressed)
+    });
+    level1.actors.forEach(itm=>{
+        oldActors.push(drawActor(itm, scenarioDiv));
+    });
+    lastTime=time;
+
+}
     requestAnimationFrame(animate);
 }
 
-animate();
+requestAnimationFrame(animate);
+
+/*
+let act1=drawActor(level1.actors[0]);
+drawActor(level1.actors[1]);
+drawActor(level1.actors[2]);
+drawActor(level1.actors[3]);
+act1.remove();
+*/
+
+/*
+drawActor(level1.actors[4]);
+drawActor(level1.actors[5]);
+drawActor(level1.actors[6]);
+drawActor(level1.actors[7]);
+*/
+/*test
+let div;
+document.body.appendChild(div=document.createElement("div"));
+div.remove();
+*/
